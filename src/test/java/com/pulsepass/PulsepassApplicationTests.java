@@ -1,6 +1,7 @@
 package com.pulsepass;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -432,49 +433,52 @@ private UserProfileRepository userProfileRepository;
     }
 
     @Test
-    @Transactional
-    void shouldFindEventsByArtist() {
-        Venue venue = new Venue();
-        venue.setCode("VEN-ARTIST");
-        venue.setName("Artist Arena");
-        venue.setCity("Santa Marta");
-        venue.setAddress("Carrera 9 #9-9");
-        venue.setCapacity(2000);
-        venue.setActive(true);
+void shouldFindEventsByArtist() {
+    Venue venue = new Venue();
+    venue.setCode("VEN-ARTIST");
+    venue.setName("Artist Arena");
+    venue.setCity("Santa Marta");
+    venue.setAddress("Carrera 9 #9-9");
+    venue.setCapacity(2000);
+    venue.setActive(true);
+    venue = venueRepository.save(venue);
 
-        venue = venueRepository.save(venue);
+    Artist artist = artistRepository.findByStageName("Solar Beat")
+            .orElseThrow();
 
-        Artist artist = artistRepository.findByStageName("Solar Beat")
-                .orElseThrow();
+    Event firstEvent = new Event();
+    firstEvent.setEventCode("EVT-ARTIST-001");
+    firstEvent.setName("Solar Beat Event 1");
+    firstEvent.setDescription("Primer evento de Solar Beat");
+    firstEvent.setCategory(EventCategory.MUSIC);
+    firstEvent.setStatus(EventStatus.PUBLISHED);
+    firstEvent.setEventDate(LocalDateTime.of(2026, 11, 10, 19, 0));
+    firstEvent.setMinimumAge(18);
+    firstEvent.setVenue(venue);
+    firstEvent.getArtists().add(artist);
 
-        Event event = new Event();
-        event.setEventCode("EVT-ARTIST");
-        event.setName("Artist Event");
-        event.setDescription("Evento por artista");
-        event.setCategory(EventCategory.MUSIC);
-        event.setStatus(EventStatus.PUBLISHED);
-        event.setEventDate(LocalDateTime.of(2026, 11, 10, 19, 0));
-        event.setMinimumAge(18);
-        event.setVenue(venue);
+    Event secondEvent = new Event();
+    secondEvent.setEventCode("EVT-ARTIST-002");
+    secondEvent.setName("Solar Beat Event 2");
+    secondEvent.setDescription("Segundo evento de Solar Beat");
+    secondEvent.setCategory(EventCategory.MUSIC);
+    secondEvent.setStatus(EventStatus.PUBLISHED);
+    secondEvent.setEventDate(LocalDateTime.of(2026, 11, 20, 19, 0));
+    secondEvent.setMinimumAge(18);
+    secondEvent.setVenue(venue);
+    secondEvent.getArtists().add(artist);
 
-        event = eventRepository.save(event);
+    eventRepository.save(firstEvent);
+    eventRepository.saveAndFlush(secondEvent);
 
-        entityManager.createNativeQuery(
-                "INSERT INTO event_artists (event_id, artist_id) " +
-                "VALUES (:eventId, :artistId)"
-        )
-        .setParameter("eventId", event.getId())
-        .setParameter("artistId", artist.getId())
-        .executeUpdate();
+    var events = eventRepository.findEventsByArtist("Solar Beat");
 
-        var events = eventRepository.findEventsByArtist("Solar Beat");
-
-        assertEquals(1, events.size());
-        assertEquals(
-                "EVT-ARTIST",
-                events.get(0).getEventCode()
-        );
-    }
+    assertEquals(2, events.size());
+    assertTrue(events.stream()
+            .anyMatch(event -> event.getEventCode().equals("EVT-ARTIST-001")));
+    assertTrue(events.stream()
+            .anyMatch(event -> event.getEventCode().equals("EVT-ARTIST-002")));
+}
     @Test
 void shouldRejectDuplicateVenueCode() {
     Venue firstVenue = new Venue();
@@ -498,6 +502,58 @@ void shouldRejectDuplicateVenueCode() {
     org.junit.jupiter.api.Assertions.assertThrows(
             Exception.class,
             () -> venueRepository.saveAndFlush(duplicateVenue)
+    );
+}
+@Test
+void shouldRejectDuplicateTicketCode() {
+    Venue venue = new Venue();
+    venue.setCode("VEN-TICKET-UNIQUE");
+    venue.setName("Ticket Unique Arena");
+    venue.setCity("Santa Marta");
+    venue.setAddress("Carrera 15 #15-15");
+    venue.setCapacity(2000);
+    venue.setActive(true);
+    venue = venueRepository.save(venue);
+
+    Event event = new Event();
+    event.setEventCode("EVT-TICKET-UNIQUE");
+    event.setName("Ticket Unique Event");
+    event.setCategory(EventCategory.MUSIC);
+    event.setStatus(EventStatus.PUBLISHED);
+    event.setEventDate(LocalDateTime.of(2026, 12, 30, 19, 0));
+    event.setMinimumAge(18);
+    event.setVenue(venue);
+    event = eventRepository.save(event);
+
+    User user = new User();
+    user.setUsername("natalia.ticketunique");
+    user.setEmail("natalia.ticketunique@example.com");
+    user.setActive(true);
+    user = userRepository.save(user);
+
+    Ticket firstTicket = new Ticket();
+    firstTicket.setTicketCode("TCK-DUPLICATE-001");
+    firstTicket.setType(TicketType.VIP);
+    firstTicket.setPrice(new BigDecimal("250000.00"));
+    firstTicket.setStatus(TicketStatus.PAID);
+    firstTicket.setPurchaseDate(LocalDateTime.now());
+    firstTicket.setUser(user);
+    firstTicket.setEvent(event);
+
+    ticketRepository.saveAndFlush(firstTicket);
+
+    Ticket duplicateTicket = new Ticket();
+    duplicateTicket.setTicketCode("TCK-DUPLICATE-001");
+    duplicateTicket.setType(TicketType.GENERAL);
+    duplicateTicket.setPrice(new BigDecimal("120000.00"));
+    duplicateTicket.setStatus(TicketStatus.RESERVED);
+    duplicateTicket.setPurchaseDate(LocalDateTime.now());
+    duplicateTicket.setUser(user);
+    duplicateTicket.setEvent(event);
+
+    org.junit.jupiter.api.Assertions.assertThrows(
+        Exception.class,
+        () -> ticketRepository.saveAndFlush(duplicateTicket)
     );
 }
     @Test

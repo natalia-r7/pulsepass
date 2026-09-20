@@ -182,7 +182,7 @@ La última ejecución de:
 finalizó correctamente con:
 
 ```text
-Tests run: 22, Failures: 0, Errors: 0, Skipped: 0
+Tests run: 23, Failures: 0, Errors: 0, Skipped: 0
 
 BUILD SUCCESS
 ```
